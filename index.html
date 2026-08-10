@@ -1,0 +1,797 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calculadora Científica y Gráfica</title>
+    
+    <!-- Scripts Externos -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/11.8.0/math.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    
+    <!-- Configuración de Tailwind vinculada a variables CSS -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        dark: 'var(--color-dark)',
+                        darker: 'var(--color-darker)',
+                        darkest: 'var(--color-darkest)',
+                        primary: 'var(--color-primary)',
+                        secondary: 'var(--color-secondary)',
+                        accent: 'var(--color-accent)',
+                        danger: 'var(--color-danger)'
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- Estilos CSS Nativos (Seguros y sin dependencias de pre-procesador) -->
+    <style>
+        :root {
+            /* Tema Default */
+            --color-dark: #1e1e24;
+            --color-darker: #151519;
+            --color-darkest: #0f0f13;
+            --color-primary: #3b82f6; /* Azul */
+            --color-secondary: #4b5563; /* Gris */
+            --color-accent: #f59e0b; /* Naranja */
+            --color-danger: #ef4444; /* Rojo */
+            --btn-bg: #27272f;
+            --btn-hover: #3f3f4e;
+            --text-main: #ffffff;
+        }
+
+        body {
+            font-family: 'Inter', system-ui, sans-serif;
+            background-color: var(--color-darkest);
+            color: var(--text-main);
+            transition: background-color 0.3s ease;
+        }
+        
+        /* Botones de Calculadora con variables nativas para evitar fallos de renderizado */
+        .calc-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 0.5rem;
+            font-size: 1.125rem;
+            font-weight: 500;
+            cursor: pointer;
+            user-select: none;
+            transition: all 0.15s ease-in-out;
+            background-color: var(--btn-bg);
+            color: var(--text-main);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            height: 3.5rem;
+            border: 1px solid rgba(255,255,255,0.05);
+        }
+
+        .calc-btn:hover { background-color: var(--btn-hover); }
+        .calc-btn:active { transform: scale(0.95); }
+        
+        .calc-btn.primary { background-color: var(--color-primary); color: #fff; font-weight: bold; border: none; }
+        .calc-btn.primary:hover { filter: brightness(1.2); }
+        
+        .calc-btn.accent { background-color: var(--color-accent); color: #fff; border: none; }
+        .calc-btn.accent:hover { filter: brightness(1.2); }
+
+        .calc-btn.danger { background-color: var(--color-danger); color: #fff; border: none; }
+        .calc-btn.danger:hover { filter: brightness(1.2); }
+        
+        .calc-btn.secondary { background-color: var(--color-secondary); color: #fff; border: none; }
+        .calc-btn.secondary:hover { filter: brightness(1.2); }
+
+        .display-container {
+            box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.5);
+            background-color: var(--color-darkest);
+        }
+
+        /* Scrollbars */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--color-secondary); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--color-primary); }
+
+        /* Pestañas */
+        .tab-content { display: none; }
+        .tab-content.active { display: flex; }
+
+        .tab-btn { background: transparent; color: #9ca3af; }
+        .tab-btn.active { background-color: var(--color-primary); color: #ffffff; }
+        
+        /* Cajas estéticas */
+        .panel-bg { background-color: var(--color-darker); border-color: rgba(255,255,255,0.1); }
+        .input-bg { background-color: var(--color-dark); color: var(--text-main); border: 1px solid rgba(255,255,255,0.2); }
+    </style>
+</head>
+<body class="h-screen w-screen overflow-hidden flex items-center justify-center p-2 sm:p-4">
+
+    <!-- Contenedor Principal -->
+    <div class="panel-bg border shadow-2xl rounded-2xl w-full max-w-6xl h-full max-h-[90vh] md:max-h-[750px] flex flex-col md:flex-row overflow-hidden transition-colors duration-300">
+        
+        <!-- MITAD IZQUIERDA: Controles e Interfaz -->
+        <div class="w-full md:w-1/2 lg:w-5/12 p-4 flex flex-col border-r border-gray-800 overflow-y-auto">
+            
+            <!-- Barra de Pestañas -->
+            <div class="flex bg-black/40 rounded-lg p-1 mb-4 shrink-0 shadow-inner">
+                <button onclick="switchTab('calc')" id="tab-calc" class="tab-btn active flex-1 py-2 px-2 rounded-md text-xs sm:text-sm font-semibold transition-all">Calculadora</button>
+                <button onclick="switchTab('conv')" id="tab-conv" class="tab-btn flex-1 py-2 px-2 rounded-md text-xs sm:text-sm font-semibold transition-all">Conversor</button>
+                <button onclick="switchTab('graph')" id="tab-graph" class="tab-btn flex-1 py-2 px-2 rounded-md text-xs sm:text-sm font-semibold transition-all">Gráficos</button>
+                <button onclick="switchTab('theme')" id="tab-theme" class="tab-btn flex-1 py-2 px-2 rounded-md text-xs sm:text-sm font-semibold transition-all text-yellow-400">Tema</button>
+            </div>
+
+            <!-- TAB: Calculadora -->
+            <div id="content-calc" class="tab-content active flex-1 flex-col h-full">
+                <!-- Pantalla -->
+                <div class="display-container rounded-xl p-4 mb-4 flex flex-col items-end justify-end relative shrink-0 min-h-[100px] border border-gray-700">
+                    <div id="history-display" class="text-gray-400 text-sm h-6 overflow-hidden w-full text-right mb-1 tracking-wider"></div>
+                    <input type="text" id="main-display" class="w-full bg-transparent text-right text-4xl sm:text-5xl font-light text-[var(--text-main)] outline-none border-none tracking-tight" placeholder="0" readonly>
+                    <div id="error-display" class="text-[var(--color-danger)] text-xs absolute bottom-1 left-3 font-bold opacity-0 transition-opacity">Error de sintaxis</div>
+                </div>
+
+                <!-- Teclado -->
+                <div class="grid grid-cols-5 gap-2 flex-1 content-start">
+                    <!-- Fila 1 -->
+                    <button class="calc-btn secondary text-sm" onclick="insert('sin(')">sin</button>
+                    <button class="calc-btn secondary text-sm" onclick="insert('cos(')">cos</button>
+                    <button class="calc-btn secondary text-sm" onclick="insert('tan(')">tan</button>
+                    <button class="calc-btn danger text-sm font-bold" onclick="clearDisplay()">AC</button>
+                    <button class="calc-btn danger text-sm" onclick="backspace()"><i class="fas fa-backspace"></i></button>
+
+                    <!-- Fila 2 -->
+                    <button class="calc-btn secondary text-sm" onclick="insert('asin(')">sin⁻¹</button>
+                    <button class="calc-btn secondary text-sm" onclick="insert('acos(')">cos⁻¹</button>
+                    <button class="calc-btn secondary text-sm" onclick="insert('atan(')">tan⁻¹</button>
+                    <button class="calc-btn secondary text-base" onclick="insert('(')">(</button>
+                    <button class="calc-btn secondary text-base" onclick="insert(')')">)</button>
+
+                    <!-- Fila 3 -->
+                    <button class="calc-btn secondary text-sm" onclick="insert('log(')">log</button>
+                    <button class="calc-btn secondary text-sm" onclick="insert('log10(')">log₁₀</button>
+                    <button class="calc-btn secondary text-base" onclick="insert('sqrt(')">√</button>
+                    <button class="calc-btn secondary text-base" onclick="insert('^')">xʸ</button>
+                    <button class="calc-btn accent text-xl" onclick="insert('/')">÷</button>
+
+                    <!-- Fila 4 -->
+                    <button class="calc-btn text-xl font-medium" onclick="insert('7')">7</button>
+                    <button class="calc-btn text-xl font-medium" onclick="insert('8')">8</button>
+                    <button class="calc-btn text-xl font-medium" onclick="insert('9')">9</button>
+                    <button class="calc-btn secondary text-base" onclick="insert('pi')">π</button>
+                    <button class="calc-btn accent text-xl" onclick="insert('*')">×</button>
+
+                    <!-- Fila 5 -->
+                    <button class="calc-btn text-xl font-medium" onclick="insert('4')">4</button>
+                    <button class="calc-btn text-xl font-medium" onclick="insert('5')">5</button>
+                    <button class="calc-btn text-xl font-medium" onclick="insert('6')">6</button>
+                    <button class="calc-btn secondary text-base" onclick="insert('e')">e</button>
+                    <button class="calc-btn accent text-xl" onclick="insert('-')">−</button>
+
+                    <!-- Fila 6 -->
+                    <button class="calc-btn text-xl font-medium" onclick="insert('1')">1</button>
+                    <button class="calc-btn text-xl font-medium" onclick="insert('2')">2</button>
+                    <button class="calc-btn text-xl font-medium" onclick="insert('3')">3</button>
+                    <button class="calc-btn secondary text-sm" onclick="insert('!')">x!</button>
+                    <button class="calc-btn accent text-xl" onclick="insert('+')">+</button>
+
+                    <!-- Fila 7 -->
+                    <button class="calc-btn secondary text-sm" onclick="insert('deg')">deg</button>
+                    <button class="calc-btn text-xl font-medium" onclick="insert('0')">0</button>
+                    <button class="calc-btn text-xl font-medium" onclick="insert('.')">.</button>
+                    <button class="calc-btn secondary text-sm font-bold" onclick="insert('ans')">Ans</button>
+                    <button class="calc-btn primary text-2xl shadow-lg shadow-blue-500/30" onclick="calculate()">=</button>
+                </div>
+            </div>
+
+            <!-- TAB: Conversor (Lógica Nativa Robusta) -->
+            <div id="content-conv" class="tab-content flex-1 flex-col space-y-4">
+                <h2 class="text-xl font-bold mb-2 flex items-center"><i class="fas fa-exchange-alt mr-2 text-[var(--color-primary)]"></i> Conversión de Unidades</h2>
+                
+                <div class="display-container p-4 rounded-xl">
+                    <label class="block text-sm font-semibold mb-2">Categoría</label>
+                    <select id="conv-category" class="w-full input-bg p-3 rounded-lg outline-none font-medium transition-colors" onchange="updateConvOptions()">
+                        <option value="length">Longitud</option>
+                        <option value="mass">Masa</option>
+                        <option value="volume">Volumen</option>
+                        <option value="area">Área</option>
+                        <option value="temperature">Temperatura</option>
+                        <option value="time">Tiempo</option>
+                    </select>
+                </div>
+
+                <div class="display-container p-4 rounded-xl space-y-4">
+                    <div>
+                        <label class="block text-sm text-gray-400 mb-1">Convertir de:</label>
+                        <div class="flex space-x-2">
+                            <input type="number" id="conv-from-val" class="flex-1 input-bg p-3 rounded-lg outline-none font-medium text-lg" value="1" oninput="doConversion()">
+                            <select id="conv-from-unit" class="w-1/2 input-bg p-3 rounded-lg outline-none text-sm font-medium" onchange="doConversion()"></select>
+                        </div>
+                    </div>
+                    
+                    <div class="flex justify-center -my-2 relative z-10">
+                        <button onclick="swapConv()" class="bg-[var(--color-primary)] text-white p-3 rounded-full hover:scale-110 shadow-lg transition-transform">
+                            <i class="fas fa-arrow-down"></i>
+                        </button>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm text-gray-400 mb-1">Resultado (A):</label>
+                        <div class="flex space-x-2">
+                            <input type="text" id="conv-to-val" class="flex-1 input-bg p-3 rounded-lg outline-none font-medium text-lg bg-black/50" readonly>
+                            <select id="conv-to-unit" class="w-1/2 input-bg p-3 rounded-lg outline-none text-sm font-medium" onchange="doConversion()"></select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB: Gráficos -->
+            <div id="content-graph" class="tab-content flex-1 flex-col space-y-3">
+                <h2 class="text-xl font-bold mb-2 flex items-center"><i class="fas fa-chart-line mr-2 text-[var(--color-primary)]"></i> Graficadora Matemática</h2>
+                
+                <div class="display-container p-4 rounded-xl flex-1 flex flex-col">
+                    <div class="mb-4">
+                        <label class="block text-sm font-bold mb-2">Función f(x) =</label>
+                        <input type="text" id="graph-func" class="w-full input-bg p-3 rounded-lg outline-none text-lg font-mono" placeholder="Ej: sin(x) * x" value="sin(x) * x" onkeypress="handleGraphEnter(event)">
+                        <p class="text-xs text-gray-400 mt-2"><i class="fas fa-info-circle"></i> Usa la variable 'x' (Ej. x^2, cos(x), 2*x + 1)</p>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4 mb-4">
+                        <div>
+                            <label class="block text-sm text-gray-400 mb-1">Rango X Mínimo</label>
+                            <input type="number" id="graph-xmin" class="w-full input-bg p-2 rounded-lg outline-none" value="-10">
+                        </div>
+                        <div>
+                            <label class="block text-sm text-gray-400 mb-1">Rango X Máximo</label>
+                            <input type="number" id="graph-xmax" class="w-full input-bg p-2 rounded-lg outline-none" value="10">
+                        </div>
+                    </div>
+
+                    <button onclick="plotGraph()" class="w-full calc-btn primary mt-auto">
+                        <i class="fas fa-play mr-2"></i> Generar Gráfico
+                    </button>
+                    
+                    <div id="graph-error" class="text-[var(--color-danger)] font-bold text-sm hidden mt-3 text-center bg-red-900/20 p-2 rounded">
+                        Expresión inválida. Revisa la sintaxis.
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB: Tema y Personalización -->
+            <div id="content-theme" class="tab-content flex-1 flex-col space-y-4 overflow-y-auto">
+                <h2 class="text-xl font-bold mb-2 flex items-center"><i class="fas fa-paint-brush mr-2 text-[var(--color-primary)]"></i> Personalizar Interfaz</h2>
+                
+                <div class="display-container p-4 rounded-xl space-y-5">
+                    
+                    <!-- Predefinidos -->
+                    <div>
+                        <label class="block text-sm font-bold text-gray-300 mb-3 border-b border-gray-700 pb-1">Temas Predefinidos</label>
+                        <div class="grid grid-cols-2 gap-3">
+                            <button onclick="setTheme('default')" class="input-bg p-3 rounded-lg text-sm font-bold hover:border-blue-500 hover:text-blue-400 transition-colors">
+                                🌙 Modo Oscuro
+                            </button>
+                            <button onclick="setTheme('neon')" class="bg-black text-[#39ff14] border border-[#39ff14]/50 p-3 rounded-lg text-sm font-bold hover:border-[#39ff14] transition-colors">
+                                💻 Neon Hacker
+                            </button>
+                            <button onclick="setTheme('ocean')" class="bg-[#020617] text-[#0ea5e9] border border-blue-900 p-3 rounded-lg text-sm font-bold hover:border-[#0ea5e9] transition-colors">
+                                🌊 Azul Océano
+                            </button>
+                            <button onclick="setTheme('sunset')" class="bg-[#150d17] text-[#f43f5e] border border-pink-900 p-3 rounded-lg text-sm font-bold hover:border-[#f43f5e] transition-colors">
+                                🌅 Atardecer Rosa
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Personalizados -->
+                    <div>
+                        <label class="block text-sm font-bold text-gray-300 mb-3 border-b border-gray-700 pb-1">Colores Personalizados a Medida</label>
+                        <div class="space-y-4 bg-black/30 p-4 rounded-lg border border-gray-800">
+                            
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm font-medium">Color Principal (Botón =)</span>
+                                <input type="color" id="color-primary" value="#3b82f6" class="w-10 h-10 rounded cursor-pointer bg-transparent border-0" oninput="updateCustomColor('--color-primary', this.value)">
+                            </div>
+                            
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm font-medium">Color Operadores (+, -, *, /)</span>
+                                <input type="color" id="color-accent" value="#f59e0b" class="w-10 h-10 rounded cursor-pointer bg-transparent border-0" oninput="updateCustomColor('--color-accent', this.value)">
+                            </div>
+                            
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm font-medium">Fondo General (Exterior)</span>
+                                <input type="color" id="color-darkest" value="#0f0f13" class="w-10 h-10 rounded cursor-pointer bg-transparent border-0" oninput="updateCustomColor('--color-darkest', this.value); syncBackgrounds(this.value);">
+                            </div>
+                            
+                            <p class="text-xs text-gray-400 italic mt-2 text-center">Toca el cuadro de color para elegir. ¡Los cambios se aplican al instante!</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- MITAD DERECHA: Resultados Visuales (Historial / Gráfica) -->
+        <div class="hidden md:flex md:w-1/2 lg:w-7/12 flex-col bg-black/20 relative p-4 lg:p-6 shadow-inner">
+            
+            <!-- Historial -->
+            <div id="right-history" class="h-full flex flex-col w-full">
+                <div class="flex justify-between items-center mb-4 bg-[var(--color-darker)] p-3 rounded-lg border border-gray-800">
+                    <h2 class="text-lg font-bold"><i class="fas fa-history mr-2 text-[var(--color-primary)]"></i> Historial de Cálculos</h2>
+                    <button onclick="clearHistory()" class="text-sm font-bold text-gray-400 hover:text-[var(--color-danger)] transition-colors px-3 py-1 rounded bg-black/30"><i class="fas fa-trash-alt mr-1"></i> Borrar</button>
+                </div>
+                <div id="history-list" class="flex-1 overflow-y-auto space-y-3 pr-2 flex flex-col-reverse">
+                    <!-- Los items van aquí -->
+                    <div class="text-center text-gray-500 font-medium mt-10 p-5 bg-[var(--color-dark)] rounded-xl border border-dashed border-gray-700">El historial está vacío. Comienza a calcular.</div>
+                </div>
+            </div>
+
+            <!-- Contenedor del Gráfico -->
+            <div id="right-graph" class="h-full hidden flex-col w-full">
+                <div class="flex justify-between items-center mb-4 bg-[var(--color-darker)] p-3 rounded-lg border border-gray-800">
+                    <h2 class="text-lg font-bold"><i class="fas fa-project-diagram mr-2 text-[var(--color-primary)]"></i> Visualización Gráfica</h2>
+                </div>
+                <div class="flex-1 bg-white rounded-xl overflow-hidden shadow-[0_0_15px_rgba(0,0,0,0.5)] p-2 relative flex items-center justify-center border-4 border-[var(--color-dark)]">
+                    <canvas id="myChart"></canvas>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        let displayValue = '';
+        let currentExpression = '';
+        let lastAnswer = 0;
+        let history = [];
+        let isEvaluated = false;
+        let chartInstance = null;
+
+        const displayEl = document.getElementById('main-display');
+        const historyDisplayEl = document.getElementById('history-display');
+        const errorEl = document.getElementById('error-display');
+
+        // Configuración de math.js
+        const parser = math.parser();
+
+        // Inicialización al cargar la ventana
+        window.onload = () => {
+            renderHistory();
+            updateConvOptions(); // Forzar carga de opciones de unidades
+            setTheme('default'); // Aplicar colores iniciales explícitos
+        };
+
+        // Soporte Teclado
+        document.addEventListener('keydown', function(event) {
+            const key = event.key;
+            if (/^[0-9.]$/.test(key)) { insert(key); }
+            else if (key === '+' || key === '-' || key === '*' || key === '/' || key === '^' || key === '(' || key === ')') { insert(key); }
+            else if (key === 'Enter') { calculate(); }
+            else if (key === 'Backspace') { backspace(); }
+            else if (key === 'Escape') { clearDisplay(); }
+        });
+
+        function switchTab(tabId) {
+            ['calc', 'conv', 'graph', 'theme'].forEach(id => {
+                const btn = document.getElementById(`tab-${id}`);
+                const content = document.getElementById(`content-${id}`);
+                if (id === tabId) {
+                    btn.classList.add('active');
+                    btn.classList.remove('text-yellow-400'); // Quitar color especial al tema si está activo
+                    content.classList.add('active');
+                } else {
+                    btn.classList.remove('active');
+                    if(id === 'theme') btn.classList.add('text-yellow-400');
+                    content.classList.remove('active');
+                }
+            });
+
+            const rightHistory = document.getElementById('right-history');
+            const rightGraph = document.getElementById('right-graph');
+            
+            if (tabId === 'graph') {
+                rightHistory.classList.add('hidden');
+                rightHistory.classList.remove('flex');
+                rightGraph.classList.remove('hidden');
+                rightGraph.classList.add('flex');
+                if(!chartInstance) setTimeout(plotGraph, 100);
+            } else {
+                rightGraph.classList.add('hidden');
+                rightGraph.classList.remove('flex');
+                rightHistory.classList.remove('hidden');
+                rightHistory.classList.add('flex');
+            }
+        }
+
+        function updateCustomColor(variable, color) {
+            document.documentElement.style.setProperty(variable, color);
+            // Actualizar el valor de los inputs color por si se llamó desde el preset
+            const inputId = variable.replace('--color-', 'color-');
+            const inputEl = document.getElementById(inputId);
+            if(inputEl) inputEl.value = color;
+        }
+
+        // Calcula colores más claros/oscuros automáticamente para fondos y botones
+        function syncBackgrounds(baseColor) {
+            let hex = baseColor.replace('#', '');
+            if (hex.length === 3) hex = hex.split('').map(c => c + c).join('');
+            
+            let r = parseInt(hex.substring(0, 2), 16);
+            let g = parseInt(hex.substring(2, 4), 16);
+            let b = parseInt(hex.substring(4, 6), 16);
+            
+            // Función auxiliar para ajustar brillo
+            const adj = (val, amt) => Math.max(Math.min(255, val + amt), 0).toString(16).padStart(2, '0');
+            
+            const dark = `#${adj(r, 10)}${adj(g, 10)}${adj(b, 10)}`;
+            const darker = `#${adj(r, 5)}${adj(g, 5)}${adj(b, 5)}`;
+            const btnBg = `#${adj(r, 30)}${adj(g, 30)}${adj(b, 30)}`;
+            const btnHover = `#${adj(r, 50)}${adj(g, 50)}${adj(b, 50)}`;
+
+            document.documentElement.style.setProperty('--color-dark', dark);
+            document.documentElement.style.setProperty('--color-darker', darker);
+            document.documentElement.style.setProperty('--btn-bg', btnBg);
+            document.documentElement.style.setProperty('--btn-hover', btnHover);
+            document.documentElement.style.setProperty('--text-main', (r+g+b)/3 > 128 ? '#000000' : '#ffffff');
+        }
+
+        function setTheme(themeName) {
+            const root = document.documentElement;
+            let primary, accent, bg;
+
+            if (themeName === 'default') {
+                primary = '#3b82f6'; accent = '#f59e0b'; bg = '#0f0f13';
+                root.style.setProperty('--color-secondary', '#4b5563');
+                root.style.setProperty('--color-danger', '#ef4444');
+            } else if (themeName === 'neon') {
+                primary = '#39ff14'; accent = '#ff00ff'; bg = '#000000';
+                root.style.setProperty('--color-secondary', '#1f2937');
+                root.style.setProperty('--color-danger', '#ff003c');
+            } else if (themeName === 'ocean') {
+                primary = '#0ea5e9'; accent = '#14b8a6'; bg = '#020617';
+                root.style.setProperty('--color-secondary', '#334155');
+                root.style.setProperty('--color-danger', '#e11d48');
+            } else if (themeName === 'sunset') {
+                primary = '#f43f5e'; accent = '#f97316'; bg = '#150d17';
+                root.style.setProperty('--color-secondary', '#52525b');
+                root.style.setProperty('--color-danger', '#be123c');
+            }
+            
+            updateCustomColor('--color-primary', primary);
+            updateCustomColor('--color-accent', accent);
+            updateCustomColor('--color-darkest', bg);
+            syncBackgrounds(bg);
+        }
+
+        function insert(char) {
+            hideError();
+            if (isEvaluated) {
+                if (/[0-9a-zA-Z\(]/.test(char) && char !== '^' && char !== '!' && char !== 'deg') {
+                    displayValue = ''; currentExpression = '';
+                } else {
+                    currentExpression = lastAnswer.toString();
+                    displayValue = lastAnswer.toString();
+                }
+                isEvaluated = false;
+            }
+
+            if (char === 'ans') char = lastAnswer.toString();
+
+            let uiChar = char;
+            if (char === '*') uiChar = '×';
+            if (char === '/') uiChar = '÷';
+            
+            currentExpression += char;
+            displayValue += uiChar;
+            updateDisplay();
+        }
+
+        function clearDisplay() {
+            displayValue = ''; currentExpression = '';
+            historyDisplayEl.innerText = '';
+            isEvaluated = false;
+            hideError(); updateDisplay();
+        }
+
+        function backspace() {
+            hideError();
+            if(isEvaluated) { clearDisplay(); return; }
+            if (displayValue.length > 0) {
+                displayValue = displayValue.slice(0, -1);
+                // Si borramos un operador en UI, borramos un caracter en la expresión real (simplificación)
+                currentExpression = currentExpression.slice(0, -1);
+            }
+            updateDisplay();
+        }
+
+        function updateDisplay() {
+            displayEl.value = displayValue || '';
+            displayEl.scrollLeft = displayEl.scrollWidth;
+        }
+
+        function showError() { errorEl.style.opacity = '1'; }
+        function hideError() { errorEl.style.opacity = '0'; }
+
+        function calculate() {
+            if (!currentExpression) return;
+            try {
+                const result = math.evaluate(currentExpression);
+                const formattedResult = math.format(result, { precision: 12 });
+                lastAnswer = result;
+                
+                addToHistory(displayValue, formattedResult);
+                
+                historyDisplayEl.innerText = displayValue + ' =';
+                displayValue = formattedResult.toString();
+                currentExpression = formattedResult.toString();
+                isEvaluated = true;
+                hideError(); updateDisplay();
+            } catch (err) {
+                console.error("Error Eval:", err);
+                showError();
+            }
+        }
+
+        function addToHistory(expr, res) {
+            history.unshift({ expr: expr, res: res });
+            renderHistory();
+        }
+
+        function clearHistory() {
+            history = [];
+            renderHistory();
+        }
+
+        function renderHistory() {
+            const listEl = document.getElementById('history-list');
+            if (history.length === 0) {
+                listEl.innerHTML = '<div class="text-center text-gray-500 font-medium mt-10 p-5 bg-[var(--color-dark)] rounded-xl border border-dashed border-gray-700">El historial está vacío. Comienza a calcular.</div>';
+                return;
+            }
+            
+            listEl.innerHTML = '';
+            history.forEach(item => {
+                const div = document.createElement('div');
+                div.className = "bg-[var(--color-dark)] p-3 rounded-lg border border-gray-700 cursor-pointer hover:border-[var(--color-primary)] transition-colors shadow-sm";
+                div.onclick = () => {
+                    displayValue = item.res.toString();
+                    currentExpression = item.res.toString();
+                    isEvaluated = true; updateDisplay();
+                };
+                div.innerHTML = `
+                    <div class="text-gray-400 text-sm text-right mb-1 font-mono">${item.expr} =</div>
+                    <div class="text-white text-xl text-right font-bold tracking-tight">${item.res}</div>
+                `;
+                listEl.appendChild(div);
+            });
+        }
+
+        const unitData = {
+            length: {
+                base: 'm',
+                units: {
+                    'm': { factor: 1, name: 'Metros (m)' },
+                    'cm': { factor: 0.01, name: 'Centímetros (cm)' },
+                    'mm': { factor: 0.001, name: 'Milímetros (mm)' },
+                    'km': { factor: 1000, name: 'Kilómetros (km)' },
+                    'in': { factor: 0.0254, name: 'Pulgadas (in)' },
+                    'ft': { factor: 0.3048, name: 'Pies (ft)' },
+                    'yd': { factor: 0.9144, name: 'Yardas (yd)' },
+                    'mi': { factor: 1609.34, name: 'Millas (mi)' }
+                }
+            },
+            mass: {
+                base: 'kg',
+                units: {
+                    'kg': { factor: 1, name: 'Kilogramos (kg)' },
+                    'g': { factor: 0.001, name: 'Gramos (g)' },
+                    'mg': { factor: 0.000001, name: 'Miligramos (mg)' },
+                    'lb': { factor: 0.453592, name: 'Libras (lb)' },
+                    'oz': { factor: 0.0283495, name: 'Onzas (oz)' },
+                    'ton': { factor: 1000, name: 'Toneladas Métricas' }
+                }
+            },
+            volume: {
+                base: 'l',
+                units: {
+                    'l': { factor: 1, name: 'Litros (L)' },
+                    'ml': { factor: 0.001, name: 'Mililitros (mL)' },
+                    'm3': { factor: 1000, name: 'Metros cúbicos (m³)' },
+                    'gal': { factor: 3.78541, name: 'Galones (EEUU)' }
+                }
+            },
+            area: {
+                base: 'm2',
+                units: {
+                    'm2': { factor: 1, name: 'Metros cuadrados (m²)' },
+                    'cm2': { factor: 0.0001, name: 'Centímetros cuad. (cm²)' },
+                    'km2': { factor: 1000000, name: 'Kilómetros cuad. (km²)' },
+                    'hectare': { factor: 10000, name: 'Hectáreas (ha)' },
+                    'acre': { factor: 4046.86, name: 'Acres' }
+                }
+            },
+            time: {
+                base: 's',
+                units: {
+                    's': { factor: 1, name: 'Segundos (s)' },
+                    'min': { factor: 60, name: 'Minutos (min)' },
+                    'h': { factor: 3600, name: 'Horas (h)' },
+                    'day': { factor: 86400, name: 'Días' },
+                    'year': { factor: 31536000, name: 'Años' }
+                }
+            },
+            temperature: {
+                base: 'c', // Especial
+                units: {
+                    'c': { name: 'Celsius (°C)' },
+                    'f': { name: 'Fahrenheit (°F)' },
+                    'k': { name: 'Kelvin (K)' }
+                }
+            }
+        };
+
+        function updateConvOptions() {
+            const category = document.getElementById('conv-category').value;
+            const fromSelect = document.getElementById('conv-from-unit');
+            const toSelect = document.getElementById('conv-to-unit');
+            
+            fromSelect.innerHTML = ''; toSelect.innerHTML = '';
+            
+            const unitsObj = unitData[category].units;
+            for (const [key, data] of Object.entries(unitsObj)) {
+                fromSelect.innerHTML += `<option value="${key}">${data.name}</option>`;
+                toSelect.innerHTML += `<option value="${key}">${data.name}</option>`;
+            }
+            
+            if (Object.keys(unitsObj).length > 1) toSelect.selectedIndex = 1;
+            doConversion();
+        }
+
+        function swapConv() {
+            const fromSelect = document.getElementById('conv-from-unit');
+            const toSelect = document.getElementById('conv-to-unit');
+            const tempVal = fromSelect.value;
+            fromSelect.value = toSelect.value;
+            toSelect.value = tempVal;
+            doConversion();
+        }
+
+        function convertTemperature(val, from, to) {
+            let celsius;
+            // A Celsius
+            if (from === 'c') celsius = val;
+            else if (from === 'f') celsius = (val - 32) * 5/9;
+            else if (from === 'k') celsius = val - 273.15;
+            // De Celsius a destino
+            if (to === 'c') return celsius;
+            if (to === 'f') return (celsius * 9/5) + 32;
+            if (to === 'k') return celsius + 273.15;
+        }
+
+        function doConversion() {
+            const val = parseFloat(document.getElementById('conv-from-val').value);
+            const category = document.getElementById('conv-category').value;
+            const fromUnit = document.getElementById('conv-from-unit').value;
+            const toUnit = document.getElementById('conv-to-unit').value;
+            const toValEl = document.getElementById('conv-to-val');
+            
+            if (isNaN(val)) { toValEl.value = ''; return; }
+            
+            try {
+                let result = 0;
+                if (category === 'temperature') {
+                    result = convertTemperature(val, fromUnit, toUnit);
+                } else {
+                    // Factores relativos a la base:
+                    // Valor en base = val * factor_origen
+                    // Resultado = (Valor en base) / factor_destino
+                    const baseValue = val * unitData[category].units[fromUnit].factor;
+                    result = baseValue / unitData[category].units[toUnit].factor;
+                }
+                
+                // Formateo para evitar notación científica exagerada en cosas simples y limitar decimales
+                toValEl.value = Number.isInteger(result) ? result : parseFloat(result.toPrecision(8));
+            } catch (err) {
+                console.error("Conversion Error:", err);
+                toValEl.value = 'Error';
+            }
+        }
+
+        function handleGraphEnter(e) { if (e.key === 'Enter') plotGraph(); }
+
+        function plotGraph() {
+            const exprStr = document.getElementById('graph-func').value;
+            const minX = parseFloat(document.getElementById('graph-xmin').value);
+            const maxX = parseFloat(document.getElementById('graph-xmax').value);
+            const errorEl = document.getElementById('graph-error');
+            
+            if (isNaN(minX) || isNaN(maxX) || minX >= maxX || !exprStr) {
+                errorEl.classList.remove('hidden');
+                errorEl.innerText = 'Rango X inválido.'; return;
+            }
+
+            try {
+                const expr = math.compile(exprStr);
+                const xValues = [];
+                const yValues = [];
+                const step = (maxX - minX) / 250; 
+                
+                for (let x = minX; x <= maxX; x += step) {
+                    try {
+                        const y = expr.evaluate({x: x});
+                        if (typeof y === 'number' && isFinite(y) && Math.abs(y) < 1000000) {
+                            xValues.push(x); yValues.push(y);
+                        } else {
+                            xValues.push(x); yValues.push(null); // Rotura de línea para asíntotas
+                        }
+                    } catch {
+                         xValues.push(x); yValues.push(null);
+                    }
+                }
+
+                errorEl.classList.add('hidden');
+                renderChart(xValues, yValues, exprStr);
+
+            } catch (err) {
+                errorEl.classList.remove('hidden');
+                errorEl.innerText = 'Expresión inválida. Usa "x" como variable.';
+            }
+        }
+
+        function renderChart(xData, yData, label) {
+            const ctx = document.getElementById('myChart').getContext('2d');
+            if (chartInstance) chartInstance.destroy();
+
+            // Usamos el color principal actual para el gráfico
+            const style = getComputedStyle(document.documentElement);
+            const primaryColor = style.getPropertyValue('--color-primary').trim() || '#3b82f6';
+
+            chartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: xData,
+                    datasets: [{
+                        label: `f(x) = ${label}`,
+                        data: yData,
+                        borderColor: primaryColor,
+                        backgroundColor: primaryColor + '20', // Añade transparencia hex
+                        borderWidth: 2.5,
+                        pointRadius: 0,
+                        pointHitRadius: 10,
+                        pointHoverRadius: 5,
+                        fill: false,
+                        tension: 0.1,
+                        spanGaps: false
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: {
+                        legend: { display: true, labels: { color: '#000', font: { weight: 'bold' } } },
+                        tooltip: {
+                            callbacks: {
+                                label: function(c) { return `f(${math.format(c.parsed.x, {precision: 4})}) = ${math.format(c.parsed.y, {precision: 4})}`; },
+                                title: function() { return null; }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            type: 'linear', position: 'bottom',
+                            grid: { color: 'rgba(0,0,0,0.1)', zeroLineColor: 'rgba(0,0,0,0.8)', zeroLineWidth: 2 },
+                            ticks: { color: '#333', callback: v => math.format(v, {precision: 3}) }
+                        },
+                        y: {
+                            grid: { color: 'rgba(0,0,0,0.1)', zeroLineColor: 'rgba(0,0,0,0.8)', zeroLineWidth: 2 },
+                            ticks: { color: '#333' }
+                        }
+                    }
+                }
+            });
+        }
+    </script>
+</body>
+</html>
